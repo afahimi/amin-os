@@ -1,5 +1,5 @@
 
-import { User, Briefcase, FileText, FlaskConical, Paperclip, Mail, Heart, Trophy, Gamepad2, Terminal } from 'lucide-react';
+import { User, Briefcase, FileText, FlaskConical, Paperclip, Mail, Heart, Trophy, Gamepad2, Terminal, Code } from 'lucide-react';
 import { AppConfig, Project, LogEntry, Achievement } from './types';
 
 export const APPS: AppConfig[] = [
@@ -13,6 +13,7 @@ export const APPS: AppConfig[] = [
   { id: 'achievements', title: 'Trophies', icon: Trophy, defaultSize: { w: 450, h: 500 } },
   { id: 'game', title: 'Snake.exe', icon: Gamepad2, defaultSize: { w: 400, h: 500 } },
   { id: 'terminal', title: 'Terminal', icon: Terminal, defaultSize: { w: 600, h: 400 } },
+  { id: 'vscode', title: 'VS Code', icon: Code, defaultSize: { w: 900, h: 600 } },
 ];
 
 export const PROJECTS: Project[] = [

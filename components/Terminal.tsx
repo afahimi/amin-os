@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Terminal as TerminalIcon, X, Save } from 'lucide-react';
+import { FileSystemNode, FileType } from '../utils/filesystem';
 
 interface TerminalProps {
   onClose: () => void;
   onUnlockAchievement: (id: string) => void;
+  fileSystem: FileSystemNode;
+  setFileSystem: React.Dispatch<React.SetStateAction<FileSystemNode>>;
 }
 
 interface HistoryItem {
@@ -11,75 +14,12 @@ interface HistoryItem {
   content: string;
 }
 
-type FileType = 'file' | 'directory';
 type EditorType = 'nano' | 'vim';
 type VimMode = 'NORMAL' | 'INSERT' | 'COMMAND';
 
-interface FileSystemNode {
-  name: string;
-  type: FileType;
-  content?: string;
-  children?: { [name: string]: FileSystemNode };
-}
 
-const INITIAL_FS: FileSystemNode = {
-  name: 'root',
-  type: 'directory',
-  children: {
-    'home': {
-      name: 'home',
-      type: 'directory',
-      children: {
-        'guest': {
-          name: 'guest',
-          type: 'directory',
-          children: {
-            'readme.txt': { name: 'readme.txt', type: 'file', content: 'Welcome to AminOS Terminal.\nThis is a mock terminal environment.\n\nTry commands like:\n- ls\n- cd\n- mkdir\n- touch\n- nano' },
-            'secrets.txt': { name: 'secrets.txt', type: 'file', content: 'TOP SECRET\n----------------\nThe password is: password123' },
-            'todo.list': { name: 'todo.list', type: 'file', content: '- Buy milk\n- Hack the mainframe\n- Sleep' },
-            'projects': {
-                name: 'projects',
-                type: 'directory',
-                children: {}
-            }
-          }
-        }
-      }
-    },
-    'bin': {
-      name: 'bin',
-      type: 'directory',
-      children: {
-          'echo': { name: 'echo', type: 'file', content: 'Binary file' },
-          'ls': { name: 'ls', type: 'file', content: 'Binary file' },
-          'cat': { name: 'cat', type: 'file', content: 'Binary file' }
-      }
-    },
-    'etc': {
-        name: 'etc',
-        type: 'directory',
-        children: {
-            'hosts': { name: 'hosts', type: 'file', content: '127.0.0.1 localhost' },
-            'passwd': { name: 'passwd', type: 'file', content: 'root:x:0:0:root:/root:/bin/bash\nguest:x:1000:1000:guest:/home/guest:/bin/bash' }
-        }
-    },
-    'var': {
-        name: 'var',
-        type: 'directory',
-        children: {
-            'log': {
-                name: 'log',
-                type: 'directory',
-                children: {
-                    'syslog': { name: 'syslog', type: 'file', content: 'System booted successfully.' }
-                }
-            }
-        }
-    }
-  }
-};
 
-export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement }) => {
+export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement, fileSystem, setFileSystem }) => {
   const [history, setHistory] = useState<HistoryItem[]>([
     { type: 'output', content: 'AminOS v1.0.0' },
     { type: 'output', content: 'Type "help" for a list of commands.' },
@@ -87,7 +27,6 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
   const [input, setInput] = useState('');
   const [isGlitching, setIsGlitching] = useState(false);
   const [currentPath, setCurrentPath] = useState<string[]>(['home', 'guest']);
-  const [fileSystem, setFileSystem] = useState<FileSystemNode>(INITIAL_FS);
   
   // Editor State
   const [isEditorOpen, setIsEditorOpen] = useState(false);

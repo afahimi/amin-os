@@ -1,5 +1,5 @@
 
-export type AppId = 'profile' | 'missions' | 'log' | 'labs' | 'resume' | 'contact' | 'care' | 'achievements' | 'game' | 'terminal';
+export type AppId = 'profile' | 'missions' | 'log' | 'labs' | 'resume' | 'contact' | 'care' | 'achievements' | 'game' | 'terminal' | 'vscode';
 
 export interface AppConfig {
   id: AppId;

@@ -9,6 +9,7 @@ import { AppId, WindowState, Notification, Achievement } from '../types';
 import { AppContent } from './AppContents';
 import { INITIAL_ACHIEVEMENTS } from '../constants';
 import { CheckCircle } from 'lucide-react';
+import { INITIAL_FS, FileSystemNode } from '../utils/filesystem';
 
 const Desktop: React.FC = () => {
   const desktopRef = useRef<HTMLDivElement>(null);
@@ -20,6 +21,9 @@ const Desktop: React.FC = () => {
   // Achievement System
   const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  
+  // File System State (Lifted)
+  const [fileSystem, setFileSystem] = useState<FileSystemNode>(INITIAL_FS);
 
   // Load Achievements from LocalStorage
   useEffect(() => {
@@ -198,6 +202,8 @@ const Desktop: React.FC = () => {
                     appId={win.id} 
                     unlockAchievement={unlockAchievement} 
                     achievements={achievements}
+                    fileSystem={fileSystem}
+                    setFileSystem={setFileSystem}
                 />
               </Window>
             </div>

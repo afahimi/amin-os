@@ -8,14 +8,18 @@ import {
 } from 'lucide-react';
 import Window from './Window';
 import { Terminal } from './Terminal';
+import { VSCodeApp } from './VSCodeApp';
+import { FileSystemNode } from '../utils/filesystem';
 
 interface AppContentsProps {
   appId: AppId;
   unlockAchievement: (id: string) => void;
   achievements: Achievement[];
+  fileSystem: FileSystemNode;
+  setFileSystem: React.Dispatch<React.SetStateAction<FileSystemNode>>;
 }
 
-export const AppContent: React.FC<AppContentsProps> = ({ appId, unlockAchievement, achievements }) => {
+export const AppContent: React.FC<AppContentsProps> = ({ appId, unlockAchievement, achievements, fileSystem, setFileSystem }) => {
   switch (appId) {
     case 'profile': return <ProfileApp />;
     case 'missions': return <MissionsApp />;
@@ -26,8 +30,8 @@ export const AppContent: React.FC<AppContentsProps> = ({ appId, unlockAchievemen
     case 'care': return <SelfCareApp onComplete={() => unlockAchievement('zen')} />;
     case 'achievements': return <AchievementsApp achievements={achievements} />;
     case 'game': return <SnakeGame onPlay={() => unlockAchievement('gamer')} />;
-    case 'game': return <SnakeGame onPlay={() => unlockAchievement('gamer')} />;
-    case 'terminal': return <Terminal onClose={() => {}} onUnlockAchievement={unlockAchievement} />;
+    case 'terminal': return <Terminal onClose={() => {}} onUnlockAchievement={unlockAchievement} fileSystem={fileSystem} setFileSystem={setFileSystem} />;
+    case 'vscode': return <VSCodeApp fileSystem={fileSystem} setFileSystem={setFileSystem} />;
     default: return <div className="p-4">App not found</div>;
   }
 };
