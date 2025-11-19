@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useDragControls } from 'framer-motion';
 import { X, Minus, Maximize2, Minimize2 } from 'lucide-react';
 import { WindowState, AppId } from '../types';
 import { APPS } from '../constants';
@@ -22,6 +22,7 @@ const Window: React.FC<WindowProps> = ({
 }) => {
   const { currentTheme } = useTheme();
   const config = APPS.find(a => a.id === state.id);
+  const dragControls = useDragControls();
   
   if (!config) return null;
 
@@ -44,6 +45,8 @@ const Window: React.FC<WindowProps> = ({
   return (
     <motion.div
       drag={!isMaximized}
+      dragControls={dragControls}
+      dragListener={false} // Disable default drag listener
       dragConstraints={parentRef}
       dragMomentum={false}
       dragElastic={0.1}
@@ -83,12 +86,16 @@ const Window: React.FC<WindowProps> = ({
           ${!isMaximized ? 'cursor-grab active:cursor-grabbing' : ''} 
           select-none
         `}
+        onPointerDown={(e) => {
+            if (!isMaximized) dragControls.start(e);
+        }}
         onDoubleClick={() => !isMobile && onMaximize(state.id)}
       >
         <div className="flex items-center gap-4 md:gap-3">
            <div className="flex gap-2 group">
              {/* Close Button */}
              <button 
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); onClose(state.id); }} 
                 className="w-3 h-3 md:w-3 md:h-3 rounded-full bg-os-red hover:brightness-110 flex items-center justify-center text-black/0 hover:text-black/50 transition-all"
              >
@@ -99,12 +106,14 @@ const Window: React.FC<WindowProps> = ({
              {!isMobile && (
                <>
                  <button 
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => { e.stopPropagation(); onMinimize(state.id); }} 
                     className="w-3 h-3 rounded-full bg-os-yellow hover:brightness-110 flex items-center justify-center text-black/0 hover:text-black/50 transition-all"
                  >
                    <Minus size={8} />
                  </button>
                  <button 
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => { e.stopPropagation(); onMaximize(state.id); }} 
                     className="w-3 h-3 rounded-full bg-green-500 hover:brightness-110 flex items-center justify-center text-black/0 hover:text-black/50 transition-all"
                  >

@@ -1,5 +1,5 @@
 
-import { User, Briefcase, FileText, FlaskConical, Paperclip, Mail, Heart, Trophy, Gamepad2, Terminal, Code, Settings } from 'lucide-react';
+import { User, Briefcase, FileText, FlaskConical, Paperclip, Mail, Heart, Trophy, Gamepad2, Terminal, Code, Settings, Music } from 'lucide-react';
 import { AppConfig, Project, LogEntry, Achievement } from './types';
 
 export const APPS: AppConfig[] = [
@@ -15,6 +15,7 @@ export const APPS: AppConfig[] = [
   { id: 'terminal', title: 'Terminal', icon: Terminal, defaultSize: { w: 600, h: 400 } },
   { id: 'vscode', title: 'VS Code', icon: Code, defaultSize: { w: 900, h: 600 } },
   { id: 'settings', title: 'Settings', icon: Settings, defaultSize: { w: 600, h: 500 } },
+  { id: 'spotify', title: 'Spotify', icon: Music, defaultSize: { w: 1100, h: 700 } },
 ];
 
 export const PROJECTS: Project[] = [

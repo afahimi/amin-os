@@ -10,6 +10,7 @@ import Window from './Window';
 import { Terminal } from './Terminal';
 import { VSCodeApp } from './VSCodeApp';
 import SettingsApp from './SettingsApp';
+import SpotifyApp from './SpotifyApp';
 import { FileSystemNode } from '../utils/filesystem';
 
 interface AppContentsProps {
@@ -34,6 +35,7 @@ export const AppContent: React.FC<AppContentsProps> = ({ appId, unlockAchievemen
     case 'terminal': return <Terminal onClose={() => {}} onUnlockAchievement={unlockAchievement} fileSystem={fileSystem} setFileSystem={setFileSystem} />;
     case 'vscode': return <VSCodeApp fileSystem={fileSystem} setFileSystem={setFileSystem} />;
     case 'settings': return <SettingsApp />;
+    case 'spotify': return <SpotifyApp />;
     default: return <div className="p-4">App not found</div>;
   }
 };
