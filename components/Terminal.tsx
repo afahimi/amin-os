@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Terminal as TerminalIcon, X, Save } from 'lucide-react';
 import { FileSystemNode, FileType } from '../utils/filesystem';
 import { CCompiler, runExecutable } from '../utils/compiler';
+import { MAN_PAGES, ManPage } from '../utils/manPages';
 
 interface TerminalProps {
   onClose: () => void;
@@ -37,6 +38,10 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
   const [editorContent, setEditorContent] = useState('');
   const [editorFilePath, setEditorFilePath] = useState<string | null>(null);
   
+  // Man Page State
+  const [isManOpen, setIsManOpen] = useState(false);
+  const [currentManPage, setCurrentManPage] = useState<ManPage | null>(null);
+
   // Vim State
   const [vimMode, setVimMode] = useState<VimMode>('NORMAL');
   const [vimCommand, setVimCommand] = useState('');
@@ -62,6 +67,20 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
           inputRef.current.focus();
       }
   }, [isEditorOpen]);
+
+  useEffect(() => {
+    const handleManKeyDown = (e: KeyboardEvent) => {
+        if (isManOpen) {
+            if (e.key === 'q') {
+                setIsManOpen(false);
+                setCurrentManPage(null);
+            }
+        }
+    };
+
+    window.addEventListener('keydown', handleManKeyDown);
+    return () => window.removeEventListener('keydown', handleManKeyDown);
+  }, [isManOpen]);
 
   // --- VFS Helpers ---
 
@@ -133,8 +152,14 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
     rm [file]       Remove file (-r for recursive)
     cat [file]      Display file contents
     nano [file]     Open text editor
+    vim [file]      Open text editor (Vim mode)
+
+  Development:
+    gcc [file]      Compile C code (-o [out] for output)
+    ./[file]        Run executable
 
   System:
+    man [cmd]       Open manual page
     clear           Clear the terminal screen
     echo [text]     Print text to the screen
     whoami          Display current user
@@ -142,10 +167,26 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
     uptime          Display system uptime
     top             Display processes
     date            Show current date and time
+    neofetch        Display system info
     
   Easter Eggs:
+    matrix          Enter the matrix
     rm -rf /        ???` 
         }]);
+        break;
+
+      case 'man':
+        if (!args[0]) {
+            setHistory(prev => [...prev, { type: 'output', content: 'What manual page do you want?' }]);
+            break;
+        }
+        const pageName = args[0];
+        if (MAN_PAGES[pageName]) {
+            setCurrentManPage(MAN_PAGES[pageName]);
+            setIsManOpen(true);
+        } else {
+            setHistory(prev => [...prev, { type: 'error', content: `No manual entry for ${pageName}` }]);
+        }
         break;
       
       case 'clear':
@@ -790,6 +831,49 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
   };
 
   // --- Render ---
+
+  if (isManOpen && currentManPage) {
+      return (
+          <div className="h-full w-full bg-white text-black font-mono flex flex-col p-1 overflow-hidden relative">
+              <div className="flex justify-between items-center bg-white text-black border-b border-black pb-1 mb-2">
+                  <span>{currentManPage.name.split(' - ')[0].toUpperCase()}(1)</span>
+                  <span>User Commands</span>
+                  <span>{currentManPage.name.split(' - ')[0].toUpperCase()}(1)</span>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-6 outline-none" tabIndex={0} autoFocus>
+                  <section>
+                      <h3 className="font-bold mb-1">NAME</h3>
+                      <div className="pl-8">{currentManPage.name}</div>
+                  </section>
+                  <section>
+                      <h3 className="font-bold mb-1">SYNOPSIS</h3>
+                      <div className="pl-8">{currentManPage.synopsis}</div>
+                  </section>
+                  <section>
+                      <h3 className="font-bold mb-1">DESCRIPTION</h3>
+                      <div className="pl-8">{currentManPage.description}</div>
+                  </section>
+                  {currentManPage.options.length > 0 && (
+                      <section>
+                          <h3 className="font-bold mb-1">OPTIONS</h3>
+                          <div className="pl-8 space-y-2">
+                              {currentManPage.options.map((opt, i) => (
+                                  <div key={i}>
+                                      <div className="font-bold">{opt.flag}</div>
+                                      <div className="pl-8">{opt.desc}</div>
+                                  </div>
+                              ))}
+                          </div>
+                      </section>
+                  )}
+                  <div className="h-20"></div>
+              </div>
+              <div className="bg-black text-white px-2 py-1">
+                  Manual page {currentManPage.name.split(' - ')[0]}(1) line 1 (press q to quit)
+              </div>
+          </div>
+      );
+  }
 
   if (isEditorOpen) {
       if (editorType === 'nano') {

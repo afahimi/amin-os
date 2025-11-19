@@ -39,6 +39,17 @@ const BootScreen: React.FC<BootScreenProps> = ({ onComplete }) => {
     });
   }, []);
 
+  useEffect(() => {
+    if (!complete) return;
+
+    const handleKeyDown = () => {
+      onComplete();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [complete, onComplete]);
+
   return (
     <div className="fixed inset-0 bg-black text-green-500 font-mono p-8 z-50 flex flex-col justify-start items-start overflow-hidden">
       <div className="max-w-2xl w-full">
