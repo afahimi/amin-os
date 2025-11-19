@@ -14,7 +14,7 @@ export interface ThemeColors {
 }
 
 export interface ThemeCursor {
-    type: 'default' | 'pixel' | 'droplet' | 'minimal';
+    type: 'default' | 'pixel' | 'droplet' | 'minimal' | 'vaporwave';
     color: string;
     trail: boolean;
 }

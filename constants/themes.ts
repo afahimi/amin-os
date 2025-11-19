@@ -71,7 +71,7 @@ export const THEMES: Theme[] = [
             selection: 'rgba(217, 70, 239, 0.3)'
         },
         cursor: {
-            type: 'default',
+            type: 'vaporwave',
             color: '#d946ef',
             trail: true
         },

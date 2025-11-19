@@ -71,23 +71,67 @@ const CustomCursor: React.FC = () => {
     );
   }
 
-  // Droplet/Vaporwave Cursor (Vaporwave) - Let's make it a retro triangle
-  if (currentTheme.id === 'vaporwave') {
+  // Droplet/Vaporwave Cursor (Vaporwave) - Pink Blob with Ghost Trail
+  if (currentTheme.cursor.type === 'vaporwave') {
+    // Trail state
+    const [trail, setTrail] = useState<{x: number, y: number, id: number}[]>([]);
+    
+    useEffect(() => {
+      let animationFrameId: number;
+      
+      const updateTrail = () => {
+        setTrail(prev => {
+          // Only add point if moved significantly to avoid stacking
+          const lastPos = prev[0];
+          const dx = lastPos ? mousePosition.x - lastPos.x : 100;
+          const dy = lastPos ? mousePosition.y - lastPos.y : 100;
+          
+          if (Math.sqrt(dx * dx + dy * dy) > 2) {
+             return [{x: mousePosition.x, y: mousePosition.y, id: Math.random()}, ...prev].slice(0, 12);
+          }
+          return prev;
+        });
+        animationFrameId = requestAnimationFrame(updateTrail);
+      };
+      
+      animationFrameId = requestAnimationFrame(updateTrail);
+      return () => cancelAnimationFrame(animationFrameId);
+    }, [mousePosition]);
+
     return (
-      <motion.div 
-        className="fixed pointer-events-none z-[9999] mix-blend-difference"
-        style={{ 
-          left: cursorXSpring, 
-          top: cursorYSpring,
-          x: '-50%',
-          y: '-50%'
-        }}
-      >
-        <div 
-            className={`w-6 h-6 border-2 border-fuchsia-500 rotate-45 transition-transform duration-100 ${isPointer ? 'scale-150 bg-fuchsia-500/20' : ''}`}
-            style={{ boxShadow: '0 0 10px #d946ef' }}
-        />
-      </motion.div>
+      <>
+        {/* Ghost Trail / Aura */}
+        {trail.map((pos, index) => (
+          <div 
+            key={pos.id}
+            className="fixed pointer-events-none z-[9998] rounded-full bg-fuchsia-500 blur-md"
+            style={{ 
+              left: pos.x, 
+              top: pos.y,
+              width: 32 - index * 2, // Start larger
+              height: 32 - index * 2,
+              opacity: (0.4 - index * 0.03), // Lower opacity for "aura" feel
+              transform: 'translate(-50%, -50%)',
+              transition: 'opacity 0.2s ease-out' // Smooth fade
+            }}
+          />
+        ))}
+        
+        {/* Main Blob Cursor */}
+        <motion.div 
+          className="fixed pointer-events-none z-[9999] mix-blend-screen"
+          style={{ 
+            left: cursorXSpring, 
+            top: cursorYSpring,
+            x: '-50%',
+            y: '-50%'
+          }}
+        >
+          <div 
+              className={`rounded-full bg-fuchsia-300 shadow-[0_0_20px_#d946ef] transition-all duration-200 ${isPointer ? 'w-6 h-6 opacity-90' : 'w-4 h-4 opacity-100'}`}
+          />
+        </motion.div>
+      </>
     );
   }
 
