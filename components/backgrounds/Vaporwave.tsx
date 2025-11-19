@@ -62,6 +62,14 @@ const InfiniteTerrain = () => {
   
   const textures = useMemo(() => generateVaporwaveTextures(), []);
 
+  useEffect(() => {
+    return () => {
+      textures.gridTexture.dispose();
+      textures.displacementTexture.dispose();
+      textures.metalnessTexture.dispose();
+    };
+  }, [textures]);
+
   useFrame((state) => {
     const elapsedTime = state.clock.getElapsedTime();
     const speed = 0.15;
