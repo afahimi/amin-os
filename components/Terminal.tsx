@@ -28,6 +28,8 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
   const [input, setInput] = useState('');
   const [isGlitching, setIsGlitching] = useState(false);
   const [currentPath, setCurrentPath] = useState<string[]>(['home', 'guest']);
+  const [historyIndex, setHistoryIndex] = useState(-1); // -1 means new input
+
   
   // Editor State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -110,6 +112,7 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
     if (!trimmedCmd) return;
 
     setHistory(prev => [...prev, { type: 'input', content: trimmedCmd }]);
+    setHistoryIndex(-1); // Reset history index on new command
     
     const parts = trimmedCmd.split(' ');
     const command = parts[0].toLowerCase();
@@ -638,6 +641,29 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
                     { type: 'output', content: matches.join('  ') }
                 ]);
             }
+        }
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const inputHistory = history.filter(h => h.type === 'input').map(h => h.content);
+        if (inputHistory.length === 0) return;
+
+        const newIndex = historyIndex === -1 ? inputHistory.length - 1 : Math.max(0, historyIndex - 1);
+        setHistoryIndex(newIndex);
+        setInput(inputHistory[newIndex]);
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const inputHistory = history.filter(h => h.type === 'input').map(h => h.content);
+        if (inputHistory.length === 0) return;
+
+        if (historyIndex === -1) return; // Already at bottom
+
+        const newIndex = historyIndex + 1;
+        if (newIndex >= inputHistory.length) {
+            setHistoryIndex(-1);
+            setInput('');
+        } else {
+            setHistoryIndex(newIndex);
+            setInput(inputHistory[newIndex]);
         }
     }
   };

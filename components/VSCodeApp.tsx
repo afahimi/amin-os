@@ -3,7 +3,8 @@ import Editor from '@monaco-editor/react';
 import { FileSystemNode, FileType } from '../utils/filesystem';
 import { 
   Files, Search, GitBranch, Bug, MonitorPlay, Settings, 
-  ChevronRight, ChevronDown, FileCode, Folder, FolderOpen, X, Circle
+  ChevronRight, ChevronDown, FileCode, Folder, FolderOpen, X, Circle,
+  FilePlus, FolderPlus, Trash2
 } from 'lucide-react';
 
 interface VSCodeAppProps {
@@ -22,6 +23,8 @@ export const VSCodeApp: React.FC<VSCodeAppProps> = ({ fileSystem, setFileSystem 
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['root', 'root/home', 'root/home/guest']));
+  const [selectedNodePath, setSelectedNodePath] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, path: string, type: 'file' | 'directory' } | null>(null);
 
   // --- File System Helpers ---
 
@@ -52,6 +55,80 @@ export const VSCodeApp: React.FC<VSCodeAppProps> = ({ fileSystem, setFileSystem 
               content: newContent 
           };
           setFileSystem(newFS);
+      }
+  };
+
+
+  const getParentPath = (path: string): string[] => {
+      const parts = path.split('/').filter(p => p !== 'root');
+      return parts.slice(0, -1);
+  };
+
+  const createFile = (name: string, targetPathStr?: string) => {
+      const targetPath = targetPathStr || selectedNodePath || 'root/home/guest';
+      const pathParts = targetPath.split('/').filter(p => p !== 'root');
+      
+      const newFS = JSON.parse(JSON.stringify(fileSystem));
+      
+      // If target is a file, add to its parent. If directory, add to it.
+      // But for context menu on a file, we usually want to add to its parent.
+      // For context menu on a directory, add to the directory.
+      // We need to check the type of the target path node.
+      
+      let parentPath = pathParts;
+      const targetNode = getNode(pathParts, newFS);
+      
+      if (targetNode && targetNode.type === 'file') {
+          parentPath = pathParts.slice(0, -1);
+      }
+      
+      const parentNode = getNode(parentPath, newFS);
+      if (parentNode && parentNode.children) {
+          parentNode.children[name] = { name, type: 'file', content: '' };
+          setFileSystem(newFS);
+      }
+  };
+
+  const createFolder = (name: string, targetPathStr?: string) => {
+      const targetPath = targetPathStr || selectedNodePath || 'root/home/guest';
+      const pathParts = targetPath.split('/').filter(p => p !== 'root');
+      
+      const newFS = JSON.parse(JSON.stringify(fileSystem));
+      
+      let parentPath = pathParts;
+      const targetNode = getNode(pathParts, newFS);
+      
+      if (targetNode && targetNode.type === 'file') {
+          parentPath = pathParts.slice(0, -1);
+      }
+      
+      const parentNode = getNode(parentPath, newFS);
+      if (parentNode && parentNode.children) {
+          parentNode.children[name] = { name, type: 'directory', children: {} };
+          setFileSystem(newFS);
+      }
+  };
+
+  const deleteNode = (targetPathStr?: string) => {
+      const target = targetPathStr || selectedNodePath;
+      if (!target || target === 'root') return;
+      
+      const pathParts = target.split('/').filter(p => p !== 'root');
+      const parentPath = pathParts.slice(0, -1);
+      const nodeName = pathParts[pathParts.length - 1];
+      
+      const newFS = JSON.parse(JSON.stringify(fileSystem));
+      const parentNode = getNode(parentPath, newFS);
+      
+      if (parentNode && parentNode.children) {
+          delete parentNode.children[nodeName];
+          setFileSystem(newFS);
+          if (selectedNodePath === target) setSelectedNodePath(null);
+          // Close if open
+          if (openFiles.find(f => f.path === target)) {
+              setOpenFiles(prev => prev.filter(f => f.path !== target));
+              if (activeFile === target) setActiveFile(null);
+          }
       }
   };
 
@@ -95,6 +172,162 @@ export const VSCodeApp: React.FC<VSCodeAppProps> = ({ fileSystem, setFileSystem 
       updateFileContent(activeFile, value);
   };
 
+  // Context Menu Handlers
+  useEffect(() => {
+      const handleClick = () => setContextMenu(null);
+      window.addEventListener('click', handleClick);
+      return () => window.removeEventListener('click', handleClick);
+  }, []);
+
+  const handleContextMenu = (e: React.MouseEvent, path: string, type: 'file' | 'directory') => {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({ x: e.clientX, y: e.clientY, path, type });
+      setSelectedNodePath(path);
+  };
+
+  // Ctrl+S Handler
+  useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+              e.preventDefault();
+              if (activeFile) {
+                  const file = openFiles.find(f => f.path === activeFile);
+                  if (file) {
+                      updateFileContent(activeFile, file.content);
+                      setOpenFiles(prev => prev.map(f => f.path === activeFile ? { ...f, isDirty: false } : f));
+                  }
+              }
+          }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeFile, openFiles]);
+
+  // C Linting
+  const handleValidate = (markers: any[]) => {
+      // This is where we'd get default markers. 
+      // For C, we'll add our own simple checks if the file is .c
+      if (activeFile?.endsWith('.c') && activeFileObj) {
+          const code = activeFileObj.content;
+          const lines = code.split('\n');
+          const newMarkers = [...markers];
+          
+          lines.forEach((line, i) => {
+              const trimmed = line.trim();
+              if (trimmed.length > 0 && !trimmed.startsWith('//') && !trimmed.startsWith('#') && !trimmed.endsWith(';') && !trimmed.endsWith('{') && !trimmed.endsWith('}') && !trimmed.includes('if') && !trimmed.includes('for') && !trimmed.includes('while')) {
+                  newMarkers.push({
+                      startLineNumber: i + 1,
+                      startColumn: 1,
+                      endLineNumber: i + 1,
+                      endColumn: line.length + 1,
+                      message: "Expected ';'",
+                      severity: 8 // Error
+                  });
+              }
+          });
+          // Note: We can't easily set markers back to Monaco from here without the instance.
+          // But Monaco's onValidate gives us markers. We'd need the editor instance to setModelMarkers.
+          // For simplicity in this 'react' wrapper, we might just rely on the fact that we can't easily inject custom markers 
+          // without a ref to the editor instance or monaco instance.
+          // Let's use the `onMount` prop to get the monaco instance.
+      }
+  };
+
+  const handleEditorMount = (editor: any, monaco: any) => {
+      // Register C language IntelliSense
+      monaco.languages.registerCompletionItemProvider('c', {
+          provideCompletionItems: (model: any, position: any) => {
+              const suggestions = [
+                  // C Keywords
+                  ...['auto', 'break', 'case', 'char', 'const', 'continue', 'default', 'do',
+                      'double', 'else', 'enum', 'extern', 'float', 'for', 'goto', 'if',
+                      'int', 'long', 'register', 'return', 'short', 'signed', 'sizeof', 'static',
+                      'struct', 'switch', 'typedef', 'union', 'unsigned', 'void', 'volatile', 'while'
+                  ].map(keyword => ({
+                      label: keyword,
+                      kind: monaco.languages.CompletionItemKind.Keyword,
+                      insertText: keyword,
+                      detail: 'C keyword'
+                  })),
+                  
+                  // Common C Library Functions
+                  ...[
+                      { label: 'printf', snippet: 'printf("$1", $2);', detail: 'Print formatted output' },
+                      { label: 'scanf', snippet: 'scanf("$1", &$2);', detail: 'Read formatted input' },
+                      { label: 'fgets', snippet: 'fgets($1, $2, stdin);', detail: 'Read string from stdin' },
+                      { label: 'malloc', snippet: 'malloc($1)', detail: 'Allocate memory' },
+                      { label: 'free', snippet: 'free($1);', detail: 'Free allocated memory' },
+                      { label: 'strcpy', snippet: 'strcpy($1, $2);', detail: 'Copy string' },
+                      { label: 'strlen', snippet: 'strlen($1)', detail: 'Get string length' },
+                      { label: 'strcmp', snippet: 'strcmp($1, $2)', detail: 'Compare strings' },
+                      { label: 'strcspn', snippet: 'strcspn($1, "$2")', detail: 'Get span until character in string' },
+                      { label: 'strcat', snippet: 'strcat($1, $2);', detail: 'Concatenate strings' },
+                      { label: 'atoi', snippet: 'atoi($1)', detail: 'Convert string to integer' },
+                      { label: 'exit', snippet: 'exit($1);', detail: 'Exit program' }
+                  ].map(func => ({
+                      label: func.label,
+                      kind: monaco.languages.CompletionItemKind.Function,
+                      insertText: func.snippet,
+                      insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                      detail: func.detail
+                  })),
+                  
+                  // Data Types
+                  ...['int', 'char', 'float', 'double', 'void', 'long', 'short', 'unsigned', 'signed'].map(type => ({
+                      label: type,
+                      kind: monaco.languages.CompletionItemKind.TypeParameter,
+                      insertText: type,
+                      detail: 'C data type'
+                  })),
+                  
+                  // Preprocessor Directives
+                  ...[
+                      { label: '#include', snippet: '#include <$1>', detail: 'Include header file' },
+                      { label: '#define', snippet: '#define $1 $2', detail: 'Define macro' },
+                      { label: '#ifdef', snippet: '#ifdef $1\n$2\n#endif', detail: 'Conditional compilation' },
+                      { label: '#ifndef', snippet: '#ifndef $1\n$2\n#endif', detail: 'Conditional compilation' },
+                      { label: '#endif', snippet: '#endif', detail: 'End conditional' }
+                  ].map(directive => ({
+                      label: directive.label,
+                      kind: monaco.languages.CompletionItemKind.Keyword,
+                      insertText: directive.snippet,
+                      insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                      detail: directive.detail
+                  }))
+              ];
+              
+              return { suggestions };
+          }
+      });
+
+      // C Linting
+      editor.onDidChangeModelContent(() => {
+          if (activeFile?.endsWith('.c')) {
+              const model = editor.getModel();
+              const value = model.getValue();
+              const markers: any[] = [];
+              
+              const lines = value.split('\n');
+              lines.forEach((line: string, i: number) => {
+                  const trimmed = line.trim();
+                  if (trimmed.length > 0 && !trimmed.startsWith('//') && !trimmed.startsWith('#') && !trimmed.endsWith(';') && !trimmed.endsWith('{') && !trimmed.endsWith('}') && !trimmed.includes('if') && !trimmed.includes('for') && !trimmed.includes('while') && !trimmed.includes('else')) {
+                      markers.push({
+                          startLineNumber: i + 1,
+                          startColumn: 1,
+                          endLineNumber: i + 1,
+                          endColumn: line.length + 1,
+                          message: "Expected ';'",
+                          severity: monaco.MarkerSeverity.Error
+                      });
+                  }
+              });
+              monaco.editor.setModelMarkers(model, 'c-linter', markers);
+          }
+      });
+  };
+
   // --- Render Helpers ---
 
   const renderTree = (node: FileSystemNode, path: string = 'root', depth: number = 0) => {
@@ -102,9 +335,14 @@ export const VSCodeApp: React.FC<VSCodeAppProps> = ({ fileSystem, setFileSystem 
           return (
               <div 
                   key={path} 
-                  className={`flex items-center gap-1 py-1 px-2 cursor-pointer hover:bg-[#2a2d2e] ${activeFile === path ? 'bg-[#37373d] text-white' : 'text-[#cccccc]'}`}
+                  className={`flex items-center gap-1 py-1 px-2 cursor-pointer hover:bg-[#2a2d2e] ${activeFile === path ? 'bg-[#37373d] text-white' : selectedNodePath === path ? 'bg-[#2a2d2e] text-white' : 'text-[#cccccc]'}`}
                   style={{ paddingLeft: `${depth * 12 + 10}px` }}
-                  onClick={() => openFile(path, node.name, node.content || '')}
+                  onClick={(e) => {
+                      e.stopPropagation();
+                      openFile(path, node.name, node.content || '');
+                      setSelectedNodePath(path);
+                  }}
+                  onContextMenu={(e) => handleContextMenu(e, path, 'file')}
               >
                   <FileCode size={14} className="text-[#519aba] shrink-0" />
                   <span className="truncate text-sm">{node.name}</span>
@@ -118,9 +356,14 @@ export const VSCodeApp: React.FC<VSCodeAppProps> = ({ fileSystem, setFileSystem 
       return (
           <div key={path}>
               <div 
-                  className={`flex items-center gap-1 py-1 px-2 cursor-pointer hover:bg-[#2a2d2e] text-[#cccccc]`}
+                  className={`flex items-center gap-1 py-1 px-2 cursor-pointer hover:bg-[#2a2d2e] ${selectedNodePath === path ? 'bg-[#2a2d2e] text-white' : 'text-[#cccccc]'}`}
                   style={{ paddingLeft: `${depth * 12 + 10}px` }}
-                  onClick={() => toggleFolder(path)}
+                  onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFolder(path);
+                      setSelectedNodePath(path);
+                  }}
+                  onContextMenu={(e) => handleContextMenu(e, path, 'directory')}
               >
                   {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   {isExpanded ? <FolderOpen size={14} className="text-[#dcb67a] shrink-0" /> : <Folder size={14} className="text-[#dcb67a] shrink-0" />}
@@ -147,9 +390,21 @@ export const VSCodeApp: React.FC<VSCodeAppProps> = ({ fileSystem, setFileSystem 
 
       {/* Sidebar */}
       <div className="w-60 bg-[#252526] flex flex-col border-r border-[#1e1e1e] shrink-0">
-          <div className="p-2 text-xs font-bold uppercase tracking-wider flex justify-between items-center">
+          <div className="p-2 text-xs font-bold uppercase tracking-wider flex justify-between items-center group">
               <span>Explorer</span>
-              <span className="text-xs text-gray-500">...</span>
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <FilePlus size={14} className="cursor-pointer hover:text-white" onClick={() => {
+                      const name = prompt('File name:');
+                      if (name) createFile(name);
+                  }} />
+                  <FolderPlus size={14} className="cursor-pointer hover:text-white" onClick={() => {
+                      const name = prompt('Folder name:');
+                      if (name) createFolder(name);
+                  }} />
+                  <Trash2 size={14} className="cursor-pointer hover:text-white" onClick={() => {
+                      if (confirm('Delete selected?')) deleteNode();
+                  }} />
+              </div>
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar">
               <div className="py-2">
@@ -184,11 +439,11 @@ export const VSCodeApp: React.FC<VSCodeAppProps> = ({ fileSystem, setFileSystem 
           </div>
 
           {/* Editor */}
-          <div className="flex-1 relative">
+          <div className="flex-1 relative" onMouseDown={(e) => e.stopPropagation()}>
               {activeFileObj ? (
                   <Editor
                       height="100%"
-                      defaultLanguage="typescript" // Simple default, could be dynamic
+                      defaultLanguage={activeFileObj.path.endsWith('.c') ? 'c' : activeFileObj.path.endsWith('.ts') || activeFileObj.path.endsWith('.tsx') ? 'typescript' : activeFileObj.path.endsWith('.js') ? 'javascript' : 'plaintext'}
                       path={activeFileObj.path} // Helps Monaco with model caching
                       value={activeFileObj.content}
                       theme="vs-dark"
@@ -199,7 +454,10 @@ export const VSCodeApp: React.FC<VSCodeAppProps> = ({ fileSystem, setFileSystem 
                           wordWrap: 'on',
                           automaticLayout: true,
                           scrollBeyondLastLine: false,
+                          suggestOnTriggerCharacters: true,
+                          quickSuggestions: true,
                       }}
+                      onMount={handleEditorMount}
                   />
               ) : (
                   <div className="h-full flex flex-col items-center justify-center text-[#3b3b3b]">
@@ -227,7 +485,44 @@ export const VSCodeApp: React.FC<VSCodeAppProps> = ({ fileSystem, setFileSystem 
                   <div className="hover:bg-white/20 px-1 cursor-pointer"><MonitorPlay size={12} /></div>
               </div>
           </div>
+
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+          <div 
+              className="fixed bg-[#252526] border border-[#454545] shadow-xl rounded py-1 z-50 min-w-[160px]"
+              style={{ top: contextMenu.y, left: contextMenu.x }}
+          >
+              <div 
+                  className="px-4 py-1 hover:bg-[#094771] hover:text-white cursor-pointer text-sm flex items-center gap-2"
+                  onClick={() => {
+                      const name = prompt('File name:');
+                      if (name) createFile(name, contextMenu.path);
+                  }}
+              >
+                  <FilePlus size={14} /> New File
+              </div>
+              <div 
+                  className="px-4 py-1 hover:bg-[#094771] hover:text-white cursor-pointer text-sm flex items-center gap-2"
+                  onClick={() => {
+                      const name = prompt('Folder name:');
+                      if (name) createFolder(name, contextMenu.path);
+                  }}
+              >
+                  <FolderPlus size={14} /> New Folder
+              </div>
+              <div className="h-[1px] bg-[#454545] my-1" />
+              <div 
+                  className="px-4 py-1 hover:bg-[#094771] hover:text-white cursor-pointer text-sm flex items-center gap-2 text-red-400"
+                  onClick={() => {
+                      if (confirm('Delete selected?')) deleteNode(contextMenu.path);
+                  }}
+              >
+                  <Trash2 size={14} /> Delete
+              </div>
+          </div>
+      )}
     </div>
   );
 };
