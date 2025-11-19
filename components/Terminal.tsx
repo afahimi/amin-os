@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Terminal as TerminalIcon, X, Save } from 'lucide-react';
 import { FileSystemNode, FileType } from '../utils/filesystem';
+import { CCompiler, runExecutable } from '../utils/compiler';
 
 interface TerminalProps {
   onClose: () => void;
@@ -104,7 +105,7 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
 
   // --- Command Handlers ---
 
-  const handleCommand = (cmd: string) => {
+  const handleCommand = async (cmd: string) => {
     const trimmedCmd = cmd.trim();
     if (!trimmedCmd) return;
 
@@ -452,13 +453,108 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
         }
       ]);
 
-         break;
+          break;
+
+      case 'gcc':
+          if (args.length === 0) {
+              setHistory(prev => [...prev, { type: 'error', content: 'gcc: fatal error: no input files' }]);
+              break;
+          }
+          
+          // Parse args
+          let inputFile = '';
+          let outputFile = 'a.out';
+          let isAssembly = false;
+          
+          for (let i = 0; i < args.length; i++) {
+              if (args[i] === '-o' && args[i+1]) {
+                  outputFile = args[i+1];
+                  i++;
+              } else if (args[i] === '-S') {
+                  isAssembly = true;
+                  outputFile = inputFile.replace('.c', '.s');
+              } else if (!args[i].startsWith('-')) {
+                  inputFile = args[i];
+              }
+          }
+
+          if (!inputFile) {
+              setHistory(prev => [...prev, { type: 'error', content: 'gcc: fatal error: no input files' }]);
+              break;
+          }
+
+          const sourcePath = resolvePath(inputFile);
+          const sourceNode = getNode(sourcePath);
+
+          if (!sourceNode || sourceNode.type !== 'file') {
+              setHistory(prev => [...prev, { type: 'error', content: `gcc: error: ${inputFile}: No such file or directory` }]);
+              break;
+          }
+
+          // Simulate compilation steps
+          setHistory(prev => [...prev, { type: 'output', content: `Compiling ${inputFile}...` }]);
+          await new Promise(r => setTimeout(r, 500));
+
+          const code = sourceNode.content || '';
+          const preprocessed = CCompiler.preprocess(code);
+          
+          if (isAssembly) {
+               const asm = CCompiler.compile(preprocessed);
+               // Write .s file
+               const newFS = JSON.parse(JSON.stringify(fileSystem));
+               const parentPath = sourcePath.slice(0, -1);
+               const parentNode = getNode(parentPath, newFS);
+               if (parentNode && parentNode.children) {
+                   parentNode.children[outputFile] = {
+                       name: outputFile,
+                       type: 'file',
+                       content: asm
+                   };
+                   setFileSystem(newFS);
+                   setHistory(prev => [...prev, { type: 'output', content: `Assembly written to ${outputFile}` }]);
+               }
+               break;
+          }
+
+          await new Promise(r => setTimeout(r, 500));
+          setHistory(prev => [...prev, { type: 'output', content: `Linking...` }]);
+          await new Promise(r => setTimeout(r, 500));
+
+          // Link and create executable
+          const executable = CCompiler.link(code);
+          executable.name = outputFile;
+
+          const newFS = JSON.parse(JSON.stringify(fileSystem));
+          const outPath = [...currentPath]; // Output to current dir
+          const outParent = getNode(outPath, newFS);
+          
+          if (outParent && outParent.children) {
+              outParent.children[outputFile] = executable;
+              setFileSystem(newFS);
+              setHistory(prev => [...prev, { type: 'output', content: `Build successful. Output: ${outputFile}` }]);
+          }
+          break;
          
       case '':
         break;
         
       default:
-        setHistory(prev => [...prev, { type: 'error', content: `command not found: ${command}` }]);
+        // Check if it's an executable file
+        let execPathStr = command;
+        if (command.startsWith('./')) {
+            execPathStr = command.substring(2);
+        }
+        
+        const potentialExecPath = resolvePath(execPathStr);
+        const execNode = getNode(potentialExecPath);
+
+        if (execNode && execNode.type === 'file' && execNode.metadata?.isBinary) {
+             await runExecutable(execNode, (text) => {
+                 setHistory(prev => [...prev, { type: 'output', content: text }]);
+             });
+        } else {
+            setHistory(prev => [...prev, { type: 'error', content: `command not found: ${command}` }]);
+        }
     }
   };
 

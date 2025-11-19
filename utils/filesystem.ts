@@ -5,6 +5,11 @@ export interface FileSystemNode {
     type: FileType;
     content?: string;
     children?: { [name: string]: FileSystemNode };
+    metadata?: {
+        permissions?: string[];
+        source?: string;
+        isBinary?: boolean;
+    };
 }
 
 export const INITIAL_FS: FileSystemNode = {
