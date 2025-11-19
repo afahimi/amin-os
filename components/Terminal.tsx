@@ -12,6 +12,8 @@ interface HistoryItem {
 }
 
 type FileType = 'file' | 'directory';
+type EditorType = 'nano' | 'vim';
+type VimMode = 'NORMAL' | 'INSERT' | 'COMMAND';
 
 interface FileSystemNode {
   name: string;
@@ -89,8 +91,17 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
   
   // Editor State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editorType, setEditorType] = useState<EditorType>('nano');
   const [editorContent, setEditorContent] = useState('');
   const [editorFilePath, setEditorFilePath] = useState<string | null>(null);
+  
+  // Vim State
+  const [vimMode, setVimMode] = useState<VimMode>('NORMAL');
+  const [vimCommand, setVimCommand] = useState('');
+  const [vimStatusMsg, setVimStatusMsg] = useState('');
+
+  const [cursorPos, setCursorPos] = useState(0);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -453,11 +464,17 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
         const editNode = getNode(editPath);
         
         if (editNode && editNode.type === 'directory') {
-            setHistory(prev => [...prev, { type: 'error', content: `nano: ${args[0]}: Is a directory` }]);
+            setHistory(prev => [...prev, { type: 'error', content: `${command}: ${args[0]}: Is a directory` }]);
         } else {
+            setEditorType(command as EditorType);
             setEditorFilePath(args[0]); // Store original arg for display
             setEditorContent(editNode?.content || '');
             setIsEditorOpen(true);
+            if (command === 'vim') {
+                setVimMode('NORMAL');
+                setVimCommand('');
+                setVimStatusMsg(`"${args[0]}" ${editNode ? '' : '[New File]'}`);
+            }
         }
         break;
 
@@ -506,7 +523,7 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
     }
   };
 
-  const saveFile = () => {
+  const saveFile = (shouldClose: boolean = true) => {
       if (editorFilePath) {
           const path = resolvePath(editorFilePath);
           const parentPath = path.slice(0, -1);
@@ -525,9 +542,11 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
               setHistory(prev => [...prev, { type: 'error', content: `Error saving file: Directory does not exist` }]);
           }
       }
-      setIsEditorOpen(false);
-      setEditorFilePath(null);
-      setEditorContent('');
+      if (shouldClose) {
+          setIsEditorOpen(false);
+          setEditorFilePath(null);
+          setEditorContent('');
+      }
   };
 
   const triggerRmRf = () => {
@@ -589,15 +608,122 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
   };
   
   const handleEditorKeyDown = (e: React.KeyboardEvent) => {
-      if (e.ctrlKey) {
-          if (e.key === 'o') {
-              e.preventDefault();
-              saveFile();
-          } else if (e.key === 'x') {
-              e.preventDefault();
-              setIsEditorOpen(false);
-              setEditorFilePath(null);
-              setEditorContent('');
+      e.stopPropagation();
+      if (editorType === 'nano') {
+          if (e.ctrlKey) {
+              if (e.key === 'o') {
+                  e.preventDefault();
+                  saveFile(false);
+              } else if (e.key === 'x') {
+                  e.preventDefault();
+                  setIsEditorOpen(false);
+                  setEditorFilePath(null);
+                  setEditorContent('');
+              }
+          }
+      } else if (editorType === 'vim') {
+          if (vimMode === 'NORMAL') {
+              if (e.key === 'i') {
+                  e.preventDefault();
+                  setVimMode('INSERT');
+                  setVimStatusMsg('-- INSERT --');
+              } else if (e.key === ':') {
+                  e.preventDefault();
+                  setVimMode('COMMAND');
+                  setVimCommand(':');
+              } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setVimStatusMsg('');
+              } else if (['h', 'j', 'k', 'l'].includes(e.key)) {
+                  e.preventDefault();
+                  const textarea = editorRef.current;
+                  if (!textarea) return;
+                  
+                  const start = textarea.selectionStart;
+                  const value = textarea.value;
+                  const width = textarea.cols || 80; // Approximation if cols not set, but for textarea usually we rely on newlines
+                  
+                  let newPos = start;
+
+                  if (e.key === 'h') {
+                      if (start > 0) {
+                          newPos = start - 1;
+                      }
+                  } else if (e.key === 'l') {
+                      if (start < value.length) {
+                          newPos = start + 1;
+                      }
+                  } else if (e.key === 'j' || e.key === 'k') {
+                      // Simple vertical navigation approximation
+                      // Find current line start and column
+                      let lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                      let lineEnd = value.indexOf('\n', start);
+                      if (lineEnd === -1) lineEnd = value.length;
+                      const col = start - lineStart;
+                      
+                      if (e.key === 'j') {
+                          // Move down
+                          const nextLineStart = lineEnd + 1;
+                          if (nextLineStart < value.length) {
+                              let nextLineEnd = value.indexOf('\n', nextLineStart);
+                              if (nextLineEnd === -1) nextLineEnd = value.length;
+                              const nextLineLength = nextLineEnd - nextLineStart;
+                              newPos = nextLineStart + Math.min(col, nextLineLength);
+                          }
+                      } else if (e.key === 'k') {
+                          // Move up
+                          if (lineStart > 0) {
+                              const prevLineEnd = lineStart - 1;
+                              const prevLineStart = value.lastIndexOf('\n', prevLineEnd - 1) + 1;
+                              const prevLineLength = prevLineEnd - prevLineStart;
+                              newPos = prevLineStart + Math.min(col, prevLineLength);
+                          }
+                      }
+                  }
+                  textarea.setSelectionRange(newPos, newPos);
+                  setCursorPos(newPos);
+              }
+          } else if (vimMode === 'INSERT') {
+              if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setVimMode('NORMAL');
+                  setVimStatusMsg('');
+              }
+          } else if (vimMode === 'COMMAND') {
+              if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const cmd = vimCommand.substring(1); // remove :
+                  if (cmd === 'w') {
+                      saveFile(false);
+                      setVimMode('NORMAL');
+                      setVimStatusMsg(`"${editorFilePath}" written`);
+                  } else if (cmd === 'q') {
+                      setIsEditorOpen(false);
+                      setEditorFilePath(null);
+                      setEditorContent('');
+                  } else if (cmd === 'wq') {
+                      saveFile(true);
+                  } else {
+                      setVimMode('NORMAL');
+                      setVimStatusMsg(`E492: Not an editor command: ${cmd}`);
+                  }
+                  setVimCommand('');
+              } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setVimMode('NORMAL');
+                  setVimCommand('');
+                  setVimStatusMsg('');
+              } else if (e.key === 'Backspace') {
+                  if (vimCommand.length <= 1) {
+                      setVimMode('NORMAL');
+                      setVimCommand('');
+                  } else {
+                      setVimCommand(prev => prev.slice(0, -1));
+                  }
+              } else if (e.key.length === 1) {
+                  e.preventDefault();
+                  setVimCommand(prev => prev + e.key);
+              }
           }
       }
   };
@@ -605,30 +731,94 @@ export const Terminal: React.FC<TerminalProps> = ({ onClose, onUnlockAchievement
   // --- Render ---
 
   if (isEditorOpen) {
-      return (
-        <div className="h-full w-full bg-black text-gray-200 font-mono flex flex-col" onKeyDown={handleEditorKeyDown} tabIndex={0}>
-            <div className="bg-gray-800 text-white px-2 py-1 flex justify-between items-center">
-                <span>GNU nano 7.2</span>
-                <span>{editorFilePath}</span>
-                <span>Modified</span>
-            </div>
-            <textarea 
-                ref={editorRef}
-                className="flex-1 bg-black text-white p-2 border-none outline-none resize-none font-mono"
-                value={editorContent}
-                onChange={(e) => setEditorContent(e.target.value)}
-                onKeyDown={handleEditorKeyDown}
-            />
-            <div className="bg-gray-800 text-white px-2 py-1 grid grid-cols-2 gap-4 text-xs">
-                <div className="flex gap-2 cursor-pointer hover:bg-gray-700 px-1 rounded" onClick={saveFile}>
+      if (editorType === 'nano') {
+        return (
+            <div className="h-full w-full bg-black text-gray-200 font-mono flex flex-col" onKeyDown={handleEditorKeyDown} tabIndex={0}>
+                <div className="bg-gray-800 text-white px-2 py-1 flex justify-between items-center">
+                    <span>GNU nano 7.2</span>
+                    <span>{editorFilePath}</span>
+                    <span>Modified</span>
+                </div>
+                <textarea 
+                    ref={editorRef}
+                    className="flex-1 bg-black text-white p-2 border-none outline-none resize-none font-mono"
+                    value={editorContent}
+                    onChange={(e) => setEditorContent(e.target.value)}
+                    onKeyDown={handleEditorKeyDown}
+                />
+                <div className="bg-gray-800 text-white px-2 py-1 grid grid-cols-2 gap-4 text-xs">
+                <div className="flex gap-2 cursor-pointer hover:bg-gray-700 px-1 rounded" onClick={() => saveFile(false)}>
                     <span className="font-bold">^O</span> Write Out
                 </div>
-                <div className="flex gap-2 cursor-pointer hover:bg-gray-700 px-1 rounded" onClick={() => setIsEditorOpen(false)}>
-                    <span className="font-bold">^X</span> Exit
+                    <div className="flex gap-2 cursor-pointer hover:bg-gray-700 px-1 rounded" onClick={() => setIsEditorOpen(false)}>
+                        <span className="font-bold">^X</span> Exit
+                    </div>
                 </div>
             </div>
-        </div>
-      );
+        );
+      } else {
+          // Vim Render
+          const beforeCursor = editorContent.slice(0, cursorPos);
+          const cursorChar = editorContent.slice(cursorPos, cursorPos + 1) || ' ';
+          const afterCursor = editorContent.slice(cursorPos + 1);
+
+          return (
+            <div className="h-full w-full bg-black text-gray-200 font-mono flex flex-col" onKeyDown={handleEditorKeyDown} tabIndex={0}>
+                <div className="flex-1 flex relative overflow-hidden">
+                    <div className="w-8 text-blue-500 select-none pt-2 pl-2 bg-black z-10">
+                        {Array.from({ length: 20 }).map((_, i) => (
+                            <div key={i}>~</div>
+                        ))}
+                    </div>
+                    
+                    <div className="flex-1 relative">
+                        {/* Overlay for custom rendering */}
+                        <div 
+                            ref={overlayRef}
+                            className="absolute inset-0 p-2 whitespace-pre-wrap break-all pointer-events-none font-mono text-transparent"
+                            style={{ fontFamily: 'monospace' }}
+                        >
+                            <span className="text-gray-200">{beforeCursor}</span>
+                            <span className={`${vimMode === 'NORMAL' ? 'bg-green-500 text-black' : 'bg-white text-black'} inline-block`}>
+                                {cursorChar === '\n' ? ' ' : cursorChar}
+                            </span>
+                            {cursorChar === '\n' && <br />}
+                            <span className="text-gray-200">{afterCursor}</span>
+                        </div>
+
+                        {/* Actual textarea for input */}
+                        <textarea 
+                            ref={editorRef}
+                            className="absolute inset-0 w-full h-full bg-transparent text-transparent caret-transparent p-2 border-none outline-none resize-none font-mono"
+                            style={{ fontFamily: 'monospace' }}
+                            value={editorContent}
+                            onChange={(e) => {
+                                if (vimMode === 'INSERT') {
+                                    setEditorContent(e.target.value);
+                                    setCursorPos(e.target.selectionStart);
+                                }
+                            }}
+                            onSelect={(e) => {
+                                setCursorPos(e.currentTarget.selectionStart);
+                            }}
+                            onScroll={(e) => {
+                                if (overlayRef.current) {
+                                    overlayRef.current.scrollTop = e.currentTarget.scrollTop;
+                                }
+                            }}
+                            onKeyDown={handleEditorKeyDown}
+                            readOnly={vimMode !== 'INSERT'}
+                            autoFocus
+                        />
+                    </div>
+                </div>
+                <div className="bg-gray-900 text-white px-2 py-1 text-sm font-bold border-t border-gray-700 flex justify-between">
+                    <span>{vimMode === 'COMMAND' ? vimCommand : vimStatusMsg}</span>
+                    <span>{vimMode}</span>
+                </div>
+            </div>
+          );
+      }
   }
 
   return (
