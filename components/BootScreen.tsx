@@ -21,7 +21,12 @@ const BootScreen: React.FC<BootScreenProps> = ({ onComplete }) => {
   const [log, setLog] = useState<string[]>([]);
   const [complete, setComplete] = useState(false);
 
+  const hasRun = React.useRef(false);
+
   useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
+
     let delay = 0;
     lines.forEach((line, index) => {
       delay += Math.random() * 300 + 100;

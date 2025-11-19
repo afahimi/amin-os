@@ -1,19 +1,21 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { AppId, Project, LogEntry, Achievement } from '../types';
 import { PROJECTS, LOGS } from '../constants';
 import { 
   Github, Linkedin, Mail, Send, Play, ExternalLink, Heart, 
-  Cpu, RefreshCw, Trophy, Gamepad2, ArrowUp, ArrowDown, ArrowLeft, ArrowRight
+  Cpu, RefreshCw, Trophy, Gamepad2, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, X,
+  Palette, Sparkles, Timer, Search
 } from 'lucide-react';
+import Window from './Window';
+import { Terminal } from './Terminal';
 
-interface AppContentProps {
+interface AppContentsProps {
   appId: AppId;
   unlockAchievement: (id: string) => void;
   achievements: Achievement[];
 }
 
-export const AppContent: React.FC<AppContentProps> = ({ appId, unlockAchievement, achievements }) => {
+export const AppContent: React.FC<AppContentsProps> = ({ appId, unlockAchievement, achievements }) => {
   switch (appId) {
     case 'profile': return <ProfileApp />;
     case 'missions': return <MissionsApp />;
@@ -24,6 +26,8 @@ export const AppContent: React.FC<AppContentProps> = ({ appId, unlockAchievement
     case 'care': return <SelfCareApp onComplete={() => unlockAchievement('zen')} />;
     case 'achievements': return <AchievementsApp achievements={achievements} />;
     case 'game': return <SnakeGame onPlay={() => unlockAchievement('gamer')} />;
+    case 'game': return <SnakeGame onPlay={() => unlockAchievement('gamer')} />;
+    case 'terminal': return <Terminal onClose={() => {}} onUnlockAchievement={unlockAchievement} />;
     default: return <div className="p-4">App not found</div>;
   }
 };
@@ -286,34 +290,60 @@ const MissionsApp = () => (
 );
 
 const LogApp = ({ onRead }: { onRead: () => void }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLogId, setSelectedLogId] = useState<string>(LOGS[0].id);
+
+  const filteredLogs = LOGS.filter(log => 
+    log.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    log.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    log.content.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const selectedLog = LOGS.find(l => l.id === selectedLogId) || LOGS[0];
+
   return (
     <div className="h-full flex flex-col md:flex-row">
       <div className="w-full md:w-1/3 border-r border-white/10 bg-black/20 flex flex-col max-h-[200px] md:max-h-full overflow-y-auto">
-        <div className="p-3 border-b border-white/10 sticky top-0 bg-[#050608]">
+        <div className="p-3 border-b border-white/10 sticky top-0 bg-[#050608] flex items-center gap-2">
+          <Search size={14} className="text-gray-500" />
           <input 
             type="text" 
             placeholder="grep logs..." 
-            className="w-full bg-black/50 border border-white/10 rounded px-2 py-1 text-sm text-white focus:border-os-cyan outline-none font-mono"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-transparent border-none text-sm text-white focus:outline-none font-mono placeholder:text-gray-600"
           />
         </div>
         <div className="flex-1">
-          {LOGS.map(log => (
-            <div key={log.id} className="p-3 border-b border-white/5 hover:bg-white/5 cursor-pointer" onClick={onRead}>
+          {filteredLogs.map(log => (
+            <div 
+                key={log.id} 
+                className={`p-3 border-b border-white/5 hover:bg-white/5 cursor-pointer ${selectedLogId === log.id ? 'bg-white/10 border-l-2 border-l-os-cyan' : ''}`}
+                onClick={() => {
+                    setSelectedLogId(log.id);
+                    onRead();
+                }}
+            >
               <div className="text-[10px] font-mono text-gray-500 mb-1">{log.date}</div>
               <div className="text-sm font-medium text-gray-200">{log.title}</div>
             </div>
           ))}
+          {filteredLogs.length === 0 && (
+              <div className="p-4 text-center text-gray-500 text-xs font-mono">
+                  No logs found matching query.
+              </div>
+          )}
         </div>
       </div>
       <div className="w-full md:w-2/3 p-6 overflow-y-auto pb-20">
-        <h1 className="text-2xl font-display font-bold text-white mb-2">{LOGS[0].title}</h1>
+        <h1 className="text-2xl font-display font-bold text-white mb-2">{selectedLog.title}</h1>
         <div className="flex gap-2 mb-6">
-          {LOGS[0].tags.map(tag => (
+          {selectedLog.tags.map(tag => (
             <span key={tag} className="text-xs font-mono text-os-cyan">#{tag}</span>
           ))}
         </div>
         <div className="prose prose-invert prose-sm font-sans max-w-none">
-          <p>{LOGS[0].content}</p>
+          <p>{selectedLog.content}</p>
           <p className="mt-4 text-gray-400">
             [System Note: This is a simulated OS. Click on logs to trigger reading achievement.]
           </p>
@@ -324,43 +354,469 @@ const LogApp = ({ onRead }: { onRead: () => void }) => {
 };
 
 const LabsApp = ({ onRunGame }: { onRunGame: () => void }) => {
-  // Temporary handle for the specific "game" trigger
-  const handleCardClick = (title: string) => {
-      if(title.includes("Snake")) {
-         // In a real app this would launch a new window, but for now we just trigger the achievement
-         // Since we have a dedicated Game App, this is just visual linkage
-         onRunGame();
-      }
-  };
+  const [activeExperiment, setActiveExperiment] = useState<string | null>(null);
 
   return (
-    <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 h-full overflow-y-auto pb-20">
-      {/* Featured Experiment */}
-      <div className="aspect-video bg-black/50 border border-os-cyan/30 rounded relative group overflow-hidden cursor-pointer" onClick={onRunGame}>
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-black to-gray-900">
-           <div className="text-os-cyan animate-pulse text-2xl md:text-4xl font-mono font-bold flex items-center gap-2">
-              <Gamepad2 /> SNAKE.EXE
-           </div>
+    <div className="h-full flex flex-col">
+      {activeExperiment ? (
+        <div className="flex-1 relative">
+          <button 
+            onClick={() => setActiveExperiment(null)}
+            className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full hover:bg-white/20 backdrop-blur-sm border border-white/10"
+          >
+            <X size={20} />
+          </button>
+          {activeExperiment === 'matrix' && <MatrixRain />}
+          {activeExperiment === 'fractal' && <FractalTree />}
+          {activeExperiment === 'physics' && <PhysicsPlayground />}
+          {activeExperiment === 'color' && <ColorHeist />}
+          {activeExperiment === 'names' && <CyberNameGen />}
+          {activeExperiment === 'pomodoro' && <PomodoroTimer />}
         </div>
-        <div className="absolute bottom-0 w-full p-2 bg-black/60 backdrop-blur text-xs font-mono text-center">
-            Double Click to Run
-        </div>
-      </div>
+      ) : (
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto pb-20">
 
-      {[2, 3, 4].map((i) => (
-        <div key={i} className="aspect-video bg-black/50 border border-white/10 rounded relative group overflow-hidden">
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-black to-gray-900">
-             <div className="text-os-purple/20 text-2xl font-mono">LAB_0{i}</div>
+
+          {/* Matrix Rain */}
+          <div className="aspect-video bg-black/50 border border-green-500/30 rounded relative group overflow-hidden cursor-pointer" onClick={() => setActiveExperiment('matrix')}>
+            <div className="absolute inset-0 flex items-center justify-center bg-black">
+               <div className="text-green-500 font-mono text-2xl font-bold">MATRIX_RAIN</div>
+            </div>
+            <div className="absolute inset-0 bg-green-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
-          <div className="absolute inset-0 bg-os-cyan/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-            <button className="bg-os-cyan text-black px-4 py-2 rounded font-bold flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
-              <Play size={16} /> COMING_SOON
-            </button>
+
+          {/* Fractal Tree */}
+          <div className="aspect-video bg-black/50 border border-pink-500/30 rounded relative group overflow-hidden cursor-pointer" onClick={() => setActiveExperiment('fractal')}>
+            <div className="absolute inset-0 flex items-center justify-center bg-black">
+               <div className="text-pink-500 font-mono text-2xl font-bold">FRACTAL_TREE</div>
+            </div>
+            <div className="absolute inset-0 bg-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+
+          {/* Physics Playground */}
+          <div className="aspect-video bg-black/50 border border-yellow-500/30 rounded relative group overflow-hidden cursor-pointer" onClick={() => setActiveExperiment('physics')}>
+            <div className="absolute inset-0 flex items-center justify-center bg-black">
+               <div className="text-yellow-500 font-mono text-2xl font-bold">PHYSICS_BOX</div>
+            </div>
+            <div className="absolute inset-0 bg-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+
+          {/* Color Heist */}
+          <div className="aspect-video bg-black/50 border border-indigo-500/30 rounded relative group overflow-hidden cursor-pointer" onClick={() => setActiveExperiment('color')}>
+            <div className="absolute inset-0 flex items-center justify-center bg-black">
+               <div className="text-indigo-500 font-mono text-2xl font-bold flex items-center gap-2"><Palette /> COLOR_HEIST</div>
+            </div>
+            <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+
+          {/* Cyber Name Gen */}
+          <div className="aspect-video bg-black/50 border border-cyan-500/30 rounded relative group overflow-hidden cursor-pointer" onClick={() => setActiveExperiment('names')}>
+            <div className="absolute inset-0 flex items-center justify-center bg-black">
+               <div className="text-cyan-500 font-mono text-2xl font-bold flex items-center gap-2"><Sparkles /> NAME_GEN</div>
+            </div>
+            <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+
+          {/* Pomodoro */}
+          <div className="aspect-video bg-black/50 border border-red-500/30 rounded relative group overflow-hidden cursor-pointer" onClick={() => setActiveExperiment('pomodoro')}>
+            <div className="absolute inset-0 flex items-center justify-center bg-black">
+               <div className="text-red-500 font-mono text-2xl font-bold flex items-center gap-2"><Timer /> POMODORO</div>
+            </div>
+            <div className="absolute inset-0 bg-red-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </div>
-      ))}
+      )}
     </div>
   );
+};
+
+// --- Experiments ---
+
+const MatrixRain = () => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789@#$%^&*()*&^%';
+        const fontSize = 14;
+        const columns = canvas.width / fontSize;
+        const drops: number[] = [];
+
+        for (let x = 0; x < columns; x++) {
+            drops[x] = 1;
+        }
+
+        const draw = () => {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#0F0';
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = letters.charAt(Math.floor(Math.random() * letters.length));
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        };
+
+        const interval = setInterval(draw, 33);
+
+        const handleResize = () => {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        };
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('resize', handleResize);
+        };
+    }, []);
+
+    return <canvas ref={canvasRef} className="w-full h-full bg-black" />;
+};
+
+const FractalTree = () => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [angle, setAngle] = useState(0.5);
+    const [length, setLength] = useState(100);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+
+        const drawTree = (startX: number, startY: number, len: number, ang: number, branchWidth: number) => {
+            ctx.beginPath();
+            ctx.save();
+            ctx.strokeStyle = `hsl(${len * 2}, 100%, 50%)`;
+            ctx.lineWidth = branchWidth;
+            ctx.translate(startX, startY);
+            ctx.rotate(ang * Math.PI / 180);
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -len);
+            ctx.stroke();
+
+            if (len < 10) {
+                ctx.restore();
+                return;
+            }
+
+            drawTree(0, -len, len * 0.75, ang - angle * 50, branchWidth * 0.7);
+            drawTree(0, -len, len * 0.75, ang + angle * 50, branchWidth * 0.7);
+            ctx.restore();
+        };
+
+        const animate = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawTree(canvas.width / 2, canvas.height, length, 0, 10);
+        };
+
+        requestAnimationFrame(animate);
+
+    }, [angle, length]);
+
+    return (
+        <div className="w-full h-full relative bg-black flex flex-col items-center">
+            <canvas ref={canvasRef} className="w-full h-full" />
+            <div className="absolute bottom-4 bg-black/80 p-4 rounded border border-white/10 flex gap-8" onMouseDown={(e) => e.stopPropagation()}>
+                <div>
+                    <label className="block text-xs text-gray-400 mb-1">Angle</label>
+                    <input 
+                        type="range" 
+                        min="0" 
+                        max="2" 
+                        step="0.01" 
+                        value={angle} 
+                        onChange={(e) => setAngle(parseFloat(e.target.value))} 
+                        className="w-32"
+                    />
+                </div>
+                <div>
+                    <label className="block text-xs text-gray-400 mb-1">Length</label>
+                    <input 
+                        type="range" 
+                        min="50" 
+                        max="150" 
+                        value={length} 
+                        onChange={(e) => setLength(parseInt(e.target.value))} 
+                        className="w-32"
+                    />
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const PhysicsPlayground = () => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    // Use ref for physics state to avoid closure staleness in animation loop
+    const ballsRef = useRef<{x: number, y: number, vx: number, vy: number, radius: number, color: string}[]>([]);
+    const requestRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        // Initialize some balls
+        ballsRef.current = Array.from({ length: 5 }).map(() => ({
+            x: Math.random() * 400,
+            y: Math.random() * 200,
+            vx: (Math.random() - 0.5) * 10,
+            vy: (Math.random() - 0.5) * 10,
+            radius: 10 + Math.random() * 20,
+            color: `hsl(${Math.random() * 360}, 70%, 50%)`
+        }));
+    }, []);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const update = () => {
+            if (!canvas) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Update physics
+            ballsRef.current = ballsRef.current.map(ball => {
+                let { x, y, vx, vy, radius } = ball;
+
+                vy += 0.5; // Gravity
+                vx *= 0.99; // Air resistance
+                vy *= 0.99;
+
+                x += vx;
+                y += vy;
+
+                if (y + radius > canvas.height) {
+                    y = canvas.height - radius;
+                    vy *= -0.7;
+                }
+                if (x + radius > canvas.width) {
+                    x = canvas.width - radius;
+                    vx *= -0.7;
+                }
+                if (x - radius < 0) {
+                    x = radius;
+                    vx *= -0.7;
+                }
+
+                return { ...ball, x, y, vx, vy };
+            });
+
+            // Draw
+            ballsRef.current.forEach(ball => {
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                ctx.fillStyle = ball.color;
+                ctx.fill();
+            });
+
+            requestRef.current = requestAnimationFrame(update);
+        };
+
+        requestRef.current = requestAnimationFrame(update);
+
+        return () => {
+            if (requestRef.current) cancelAnimationFrame(requestRef.current);
+        };
+    }, []);
+
+    const addBall = (e: React.MouseEvent) => {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        ballsRef.current.push({
+            x, y,
+            vx: (Math.random() - 0.5) * 10,
+            vy: (Math.random() - 0.5) * 10,
+            radius: 10 + Math.random() * 20,
+            color: `hsl(${Math.random() * 360}, 70%, 50%)`
+        });
+    };
+
+    return (
+        <div className="w-full h-full relative bg-gray-900" onClick={addBall}>
+            <canvas ref={canvasRef} className="w-full h-full block" width={800} height={600} />
+            <div className="absolute top-4 left-4 text-white/50 text-xs pointer-events-none">
+                Click to add balls
+            </div>
+        </div>
+    );
+};
+
+const ColorHeist = () => {
+    const [color, setColor] = useState('#22d3ee');
+    const [palette, setPalette] = useState<string[]>([]);
+
+    const generatePalette = () => {
+        const newPalette = [];
+        for(let i=0; i<5; i++) {
+            newPalette.push(`hsl(${Math.random() * 360}, 70%, 60%)`);
+        }
+        setPalette(newPalette);
+    };
+
+    useEffect(() => {
+        generatePalette();
+    }, []);
+
+    return (
+        <div className="w-full h-full bg-gray-900 p-8 flex flex-col items-center justify-center">
+            <h2 className="text-2xl font-display font-bold text-white mb-8">COLOR_HEIST v1.0</h2>
+            
+            <div className="flex gap-4 mb-8">
+                {palette.map((c, i) => (
+                    <div 
+                        key={i} 
+                        className="w-16 h-32 rounded cursor-pointer hover:scale-110 transition-transform relative group"
+                        style={{ backgroundColor: c }}
+                        onClick={() => {
+                            setColor(c);
+                            navigator.clipboard.writeText(c);
+                        }}
+                    >
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/20 text-white text-xs font-mono font-bold">
+                            COPY
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="flex gap-4">
+                <button 
+                    onClick={generatePalette}
+                    className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded font-mono border border-white/10"
+                >
+                    GENERATE_NEW
+                </button>
+                <div className="flex items-center gap-2 bg-black/30 px-4 py-2 rounded border border-white/10">
+                    <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color }} />
+                    <span className="text-white font-mono">{color}</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const CyberNameGen = () => {
+    const [name, setName] = useState('');
+    
+    const prefixes = ['Cyber', 'Neo', 'Tech', 'Data', 'Net', 'Web', 'Bit', 'Byte', 'Pixel', 'Void', 'Null', 'Zero'];
+    const suffixes = ['Punk', 'Runner', 'Surfer', 'Mancer', 'Hacker', 'Ghost', 'Bot', 'Droid', 'Mind', 'Soul', 'Core'];
+
+    const generate = () => {
+        const p = prefixes[Math.floor(Math.random() * prefixes.length)];
+        const s = suffixes[Math.floor(Math.random() * suffixes.length)];
+        const n = Math.floor(Math.random() * 9999);
+        setName(`${p}${s}_${n}`);
+    };
+
+    return (
+        <div className="w-full h-full bg-black flex flex-col items-center justify-center p-4">
+            <div className="text-os-cyan font-mono text-sm mb-4">IDENTITY_GENERATOR</div>
+            <div className="text-4xl md:text-6xl font-display font-bold text-white mb-8 text-center tracking-tighter">
+                {name || 'READY?'}
+            </div>
+            <button 
+                onClick={generate}
+                className="bg-os-purple hover:bg-os-purple/80 text-white px-8 py-3 rounded font-bold tracking-widest hover:scale-105 transition-transform"
+            >
+                GENERATE
+            </button>
+        </div>
+    );
+};
+
+const PomodoroTimer = () => {
+    const [timeLeft, setTimeLeft] = useState(25 * 60);
+    const [isActive, setIsActive] = useState(false);
+    const [mode, setMode] = useState<'work' | 'break'>('work');
+
+    useEffect(() => {
+        let interval: ReturnType<typeof setInterval>;
+
+        if (isActive && timeLeft > 0) {
+            interval = setInterval(() => {
+                setTimeLeft((prev) => prev - 1);
+            }, 1000);
+        } else if (timeLeft === 0) {
+            setIsActive(false);
+            // Play sound or notify
+        }
+
+        return () => clearInterval(interval);
+    }, [isActive, timeLeft]);
+
+    const toggleTimer = () => setIsActive(!isActive);
+    
+    const resetTimer = () => {
+        setIsActive(false);
+        setTimeLeft(mode === 'work' ? 25 * 60 : 5 * 60);
+    };
+
+    const switchMode = () => {
+        const newMode = mode === 'work' ? 'break' : 'work';
+        setMode(newMode);
+        setTimeLeft(newMode === 'work' ? 25 * 60 : 5 * 60);
+        setIsActive(false);
+    };
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    return (
+        <div className={`w-full h-full flex flex-col items-center justify-center transition-colors duration-500 ${mode === 'work' ? 'bg-red-900/20' : 'bg-green-900/20'}`}>
+            <div className="text-xs font-mono text-gray-400 mb-2 uppercase tracking-widest">
+                {mode === 'work' ? 'Focus Sequence' : 'Recharge Cycle'}
+            </div>
+            <div className="text-8xl font-mono font-bold text-white mb-8 tabular-nums">
+                {formatTime(timeLeft)}
+            </div>
+            
+            <div className="flex gap-4">
+                <button 
+                    onClick={toggleTimer}
+                    className="bg-white/10 hover:bg-white/20 text-white w-16 h-16 rounded-full flex items-center justify-center border border-white/10 transition-all hover:scale-110"
+                >
+                    {isActive ? <div className="w-4 h-4 bg-white rounded-sm" /> : <Play className="fill-white" />}
+                </button>
+                <button 
+                    onClick={resetTimer}
+                    className="bg-white/10 hover:bg-white/20 text-white w-16 h-16 rounded-full flex items-center justify-center border border-white/10 transition-all hover:scale-110"
+                >
+                    <RefreshCw size={20} />
+                </button>
+            </div>
+
+            <button 
+                onClick={switchMode}
+                className="mt-8 text-xs font-mono text-gray-500 hover:text-white underline decoration-dotted"
+            >
+                Switch to {mode === 'work' ? 'Break' : 'Work'} Mode
+            </button>
+        </div>
+    );
 };
 
 const ResumeApp = () => (

@@ -1,5 +1,5 @@
 
-import { User, Briefcase, FileText, FlaskConical, Paperclip, Mail, Heart, Trophy, Gamepad2 } from 'lucide-react';
+import { User, Briefcase, FileText, FlaskConical, Paperclip, Mail, Heart, Trophy, Gamepad2, Terminal } from 'lucide-react';
 import { AppConfig, Project, LogEntry, Achievement } from './types';
 
 export const APPS: AppConfig[] = [
@@ -12,6 +12,7 @@ export const APPS: AppConfig[] = [
   { id: 'care', title: 'Self Care', icon: Heart, defaultSize: { w: 500, h: 500 } },
   { id: 'achievements', title: 'Trophies', icon: Trophy, defaultSize: { w: 450, h: 500 } },
   { id: 'game', title: 'Snake.exe', icon: Gamepad2, defaultSize: { w: 400, h: 500 } },
+  { id: 'terminal', title: 'Terminal', icon: Terminal, defaultSize: { w: 600, h: 400 } },
 ];
 
 export const PROJECTS: Project[] = [
@@ -64,4 +65,5 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
   { id: 'reader', title: 'Reader', desc: 'Read a log entry.', icon: '📖', unlocked: false },
   { id: 'zen', title: 'Zen Master', desc: 'Completed a breathing session.', icon: '🧘', unlocked: false },
   { id: 'explorer', title: 'Explorer', desc: 'Opened 5 different apps.', icon: '🧭', unlocked: false },
+  { id: 'system_destroyer', title: 'System Destroyer', desc: 'Tried to delete the entire OS.', icon: '💥', unlocked: false },
 ];
