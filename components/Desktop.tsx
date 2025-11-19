@@ -10,8 +10,11 @@ import { AppContent } from './AppContents';
 import { INITIAL_ACHIEVEMENTS } from '../constants';
 import { CheckCircle } from 'lucide-react';
 import { INITIAL_FS, FileSystemNode } from '../utils/filesystem';
+import { useTheme } from '../contexts/ThemeContext';
+import CustomCursor from './CustomCursor';
 
 const Desktop: React.FC = () => {
+  const { currentTheme } = useTheme();
   const desktopRef = useRef<HTMLDivElement>(null);
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [activeId, setActiveId] = useState<AppId | null>(null);
@@ -151,15 +154,23 @@ const Desktop: React.FC = () => {
   return (
     <div 
       ref={desktopRef} 
-      className="relative w-full h-screen overflow-hidden text-white select-none bg-[#050608]"
+      className="relative w-full h-screen overflow-hidden select-none transition-colors duration-700 ease-in-out"
+      style={{ 
+        backgroundColor: currentTheme.colors.background,
+        color: currentTheme.colors.text,
+        cursor: currentTheme.cursor.type === 'default' ? 'default' : 'none'
+      }}
     >
-      {/* 3D Background - lighter on mobile? */}
-      <ThinkingNebula />
+      <CustomCursor />
+      {/* Dynamic Background */}
+      <div className="absolute inset-0 z-0 transition-opacity duration-1000">
+        <currentTheme.backgroundComponent />
+      </div>
 
       {/* Background Overlay UI */}
       <div className={`absolute top-8 right-8 text-right pointer-events-none z-0 opacity-50 ${isMobile ? 'hidden' : 'block'}`}>
-         <h1 className="font-display font-bold text-4xl tracking-tighter">AMIN.OS</h1>
-         <div className="font-mono text-os-cyan">SYSTEM_STATUS: NORMAL</div>
+         <h1 className={`font-bold text-4xl tracking-tighter ${currentTheme.windowStyle.titleFont}`}>AMIN.OS</h1>
+         <div className="font-mono" style={{ color: currentTheme.colors.accentPrimary }}>SYSTEM_STATUS: NORMAL</div>
          <div className="font-mono text-xs text-gray-500">MEMORY_USAGE: 128TB</div>
       </div>
 
@@ -172,11 +183,15 @@ const Desktop: React.FC = () => {
               initial={{ x: 100, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 100, opacity: 0 }}
-              className="bg-os-panel border border-os-cyan/30 p-4 rounded shadow-lg backdrop-blur-md w-72 flex items-start gap-3 pointer-events-auto"
+              className="border p-4 rounded shadow-lg backdrop-blur-md w-72 flex items-start gap-3 pointer-events-auto"
+              style={{ 
+                backgroundColor: currentTheme.colors.windowBg,
+                borderColor: currentTheme.colors.windowBorder
+              }}
             >
-              {n.type === 'achievement' && <CheckCircle className="text-os-yellow shrink-0" size={20} />}
+              {n.type === 'achievement' && <CheckCircle style={{ color: currentTheme.colors.accentSecondary }} shrink-0 size={20} />}
               <div>
-                <div className="text-sm font-bold text-os-cyan">{n.title}</div>
+                <div className="text-sm font-bold" style={{ color: currentTheme.colors.accentPrimary }}>{n.title}</div>
                 <div className="text-xs text-gray-300">{n.message}</div>
               </div>
             </motion.div>

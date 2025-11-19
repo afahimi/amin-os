@@ -3,6 +3,7 @@ import React from 'react';
 import { AppId, WindowState } from '../types';
 import { APPS } from '../constants';
 import { format } from 'date-fns';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface TaskbarProps {
   openWindows: WindowState[];
@@ -11,6 +12,7 @@ interface TaskbarProps {
 }
 
 const Taskbar: React.FC<TaskbarProps> = ({ openWindows, activeId, onOpen }) => {
+  const { currentTheme } = useTheme();
   const time = useTime();
 
   return (
@@ -18,14 +20,18 @@ const Taskbar: React.FC<TaskbarProps> = ({ openWindows, activeId, onOpen }) => {
       <div className="
           pointer-events-auto
           h-16 md:h-16 px-4 md:px-6 
-          bg-white/10 backdrop-blur-xl border border-white/10 
+          backdrop-blur-xl border 
           rounded-2xl md:rounded-2xl
           flex items-center gap-3 md:gap-4 
           shadow-2xl
           overflow-x-auto
           max-w-full
           custom-scrollbar-hidden
-      ">
+      "
+      style={{
+        backgroundColor: currentTheme.colors.windowBg,
+        borderColor: currentTheme.colors.windowBorder
+      }}>
         {APPS.map(app => {
           const isOpen = openWindows.find(w => w.id === app.id);
           const isActive = activeId === app.id;
@@ -41,7 +47,8 @@ const Taskbar: React.FC<TaskbarProps> = ({ openWindows, activeId, onOpen }) => {
             >
               <app.icon 
                 size={20} 
-                className={`transition-colors ${isActive ? 'text-os-cyan' : 'text-gray-400 group-hover:text-white'}`} 
+                className={`transition-colors ${isActive ? '' : 'text-gray-400 group-hover:text-white'}`}
+                style={{ color: isActive ? currentTheme.colors.accentPrimary : undefined }}
               />
               
               {/* Tooltip - Hidden on Touch */}
@@ -51,7 +58,10 @@ const Taskbar: React.FC<TaskbarProps> = ({ openWindows, activeId, onOpen }) => {
 
               {/* Active Indicator */}
               {isOpen && (
-                <div className="absolute -bottom-1 md:-bottom-2 w-1 h-1 rounded-full bg-os-cyan shadow-[0_0_5px_#22d3ee]"></div>
+                <div 
+                  className="absolute -bottom-1 md:-bottom-2 w-1 h-1 rounded-full shadow-[0_0_5px_currentColor]"
+                  style={{ backgroundColor: currentTheme.colors.accentPrimary, color: currentTheme.colors.accentPrimary }}
+                ></div>
               )}
             </button>
           );

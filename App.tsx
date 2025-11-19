@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import BootScreen from './components/BootScreen';
 import Desktop from './components/Desktop';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 const App: React.FC = () => {
   const [booted, setBooted] = useState(false);
@@ -12,13 +13,13 @@ const App: React.FC = () => {
   console.log("test");
 
   return (
-    <>
+    <ThemeProvider>
       {!booted ? (
         <BootScreen onComplete={() => setBooted(true)} />
       ) : (
         <Desktop />
       )}
-    </>
+    </ThemeProvider>
   );
 };
 

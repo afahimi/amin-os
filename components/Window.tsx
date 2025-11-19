@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { X, Minus, Maximize2, Minimize2 } from 'lucide-react';
 import { WindowState, AppId } from '../types';
 import { APPS } from '../constants';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface WindowProps {
   state: WindowState;
@@ -19,6 +20,7 @@ interface WindowProps {
 const Window: React.FC<WindowProps> = ({ 
   state, isMobile, parentRef, onClose, onFocus, onMinimize, onMaximize, children 
 }) => {
+  const { currentTheme } = useTheme();
   const config = APPS.find(a => a.id === state.id);
   
   if (!config) return null;
@@ -60,14 +62,18 @@ const Window: React.FC<WindowProps> = ({
         left: isMaximized ? 0 : state.position.x,
         // Ensure touch actions work on mobile
         touchAction: 'none',
+        borderRadius: isMaximized ? '0' : currentTheme.windowStyle.borderRadius,
+        borderWidth: isMaximized ? '0' : '1px',
+        borderColor: isMaximized ? 'transparent' : currentTheme.windowStyle.borderColor,
+        backgroundColor: currentTheme.colors.windowBg,
+        boxShadow: isMaximized ? 'none' : currentTheme.windowStyle.shadow
       }}
       className={`
         flex flex-col 
-        bg-os-panel backdrop-blur-xl border border-os-border 
-        shadow-2xl rounded-lg overflow-hidden
-        ${isMaximized ? 'rounded-none !border-0' : ''}
+        backdrop-blur-xl border
+        overflow-hidden
         transition-shadow duration-200
-        ${state.zIndex === 50 && !isMaximized ? 'ring-1 ring-os-cyan/30 shadow-[0_0_30px_rgba(34,211,238,0.15)]' : ''}
+        ${state.zIndex === 50 && !isMaximized ? 'ring-1' : ''}
       `}
     >
       {/* Window Header */}
@@ -107,10 +113,10 @@ const Window: React.FC<WindowProps> = ({
                </>
              )}
            </div>
-           <span className="text-sm md:text-xs font-mono text-gray-400 flex items-center gap-2">
-             <config.icon size={14} className="md:w-3 md:h-3" />
-             {config.title}
-           </span>
+            <span className={`text-sm md:text-xs text-gray-400 flex items-center gap-2 ${currentTheme.windowStyle.titleFont}`}>
+              <config.icon size={14} className="md:w-3 md:h-3" />
+              {config.title}
+            </span>
         </div>
         
         {/* Mobile Header Actions */}
